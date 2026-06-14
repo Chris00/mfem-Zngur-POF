@@ -84,11 +84,39 @@ struct BoxedConstCoeff {
     ~BoxedConstCoeff() = default;
 };
 
+// ── OwnedDiffusionIntegrator ─────────────────────────────────────────────────
+// MFEM's DiffusionIntegrator stores a reference to its coefficient.  To avoid
+// leaking the coefficient we use a helper base class so that the coefficient is
+// initialised before the DiffusionIntegrator base (C++ initialises base classes
+// in declaration order) and is destroyed after it.
+struct ConstCoeffOwner {
+    ::mfem::ConstantCoefficient owned_coeff;
+    explicit ConstCoeffOwner(double val) : owned_coeff(val) {}
+};
+
+struct OwnedDiffusionIntegrator
+    : ConstCoeffOwner, public ::mfem::DiffusionIntegrator
+{
+    explicit OwnedDiffusionIntegrator(double val)
+        : ConstCoeffOwner(val)
+        , ::mfem::DiffusionIntegrator(owned_coeff) {}
+};
+
+// ── OwnedDomainLFIntegrator ──────────────────────────────────────────────────
+// Same pattern for DomainLFIntegrator.
+struct OwnedDomainLFIntegrator
+    : ConstCoeffOwner, public ::mfem::DomainLFIntegrator
+{
+    explicit OwnedDomainLFIntegrator(double val)
+        : ConstCoeffOwner(val)
+        , ::mfem::DomainLFIntegrator(owned_coeff) {}
+};
+
 // ── BoxedDiffInt ──────────────────────────────────────────────────────────────
 struct BoxedDiffInt {
-    std::unique_ptr<::mfem::DiffusionIntegrator> ptr;
+    std::unique_ptr<OwnedDiffusionIntegrator> ptr;
     BoxedDiffInt() = default;
-    explicit BoxedDiffInt(::mfem::DiffusionIntegrator* i) : ptr(i) {}
+    explicit BoxedDiffInt(OwnedDiffusionIntegrator* i) : ptr(i) {}
     BoxedDiffInt(BoxedDiffInt&&) = default;
     BoxedDiffInt& operator=(BoxedDiffInt&&) = default;
     ~BoxedDiffInt() = default;
@@ -96,9 +124,9 @@ struct BoxedDiffInt {
 
 // ── BoxedDomainLFInt ─────────────────────────────────────────────────────────
 struct BoxedDomainLFInt {
-    std::unique_ptr<::mfem::DomainLFIntegrator> ptr;
+    std::unique_ptr<OwnedDomainLFIntegrator> ptr;
     BoxedDomainLFInt() = default;
-    explicit BoxedDomainLFInt(::mfem::DomainLFIntegrator* i) : ptr(i) {}
+    explicit BoxedDomainLFInt(OwnedDomainLFIntegrator* i) : ptr(i) {}
     BoxedDomainLFInt(BoxedDomainLFInt&&) = default;
     BoxedDomainLFInt& operator=(BoxedDomainLFInt&&) = default;
     ~BoxedDomainLFInt() = default;

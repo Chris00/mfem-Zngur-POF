@@ -279,12 +279,9 @@ Impl<::rust::mfem::ffi::ConstantCoefficient, Inherent>::new_(::double_t value)
 Impl<::rust::mfem::ffi::DiffusionIntegrator, Inherent>::new_(
     ::rust::Ref<::rust::mfem::ffi::ConstantCoefficient> coeff)
 {
-    // DiffusionIntegrator stores a reference to the coefficient;
-    // we keep a copy so that it lives long enough.
     double val = coeff.cpp().ptr->constant;
     return ::rust::mfem::ffi::DiffusionIntegrator::build(
-        BoxedDiffInt(new ::mfem::DiffusionIntegrator(
-            *new ::mfem::ConstantCoefficient(val))));
+        BoxedDiffInt(new OwnedDiffusionIntegrator(val)));
 }
 
 // ── DomainLFIntegrator ────────────────────────────────────────────────────────
@@ -295,8 +292,7 @@ Impl<::rust::mfem::ffi::DomainLFIntegrator, Inherent>::new_(
 {
     double val = coeff.cpp().ptr->constant;
     return ::rust::mfem::ffi::DomainLFIntegrator::build(
-        BoxedDomainLFInt(new ::mfem::DomainLFIntegrator(
-            *new ::mfem::ConstantCoefficient(val))));
+        BoxedDomainLFInt(new OwnedDomainLFIntegrator(val)));
 }
 
 // ── LinearForm ────────────────────────────────────────────────────────────────
@@ -314,7 +310,8 @@ Impl<::rust::mfem::ffi::LinearForm, Inherent>::add_domain_integrator(
     ::rust::RefMut<::rust::mfem::ffi::LinearForm>  self,
     ::rust::mfem::ffi::DomainLFIntegrator           integr)
 {
-    // MFEM takes ownership; release the pointer from our unique_ptr.
+    // Release transfers ownership to MFEM; OwnedDomainLFIntegrator is a
+    // DomainLFIntegrator subclass and owns its coefficient — no leak.
     self.cpp().ptr->AddDomainIntegrator(
         integr.cpp().ptr.release());
     return {};
@@ -343,6 +340,8 @@ Impl<::rust::mfem::ffi::BilinearForm, Inherent>::add_domain_integrator(
     ::rust::RefMut<::rust::mfem::ffi::BilinearForm> self,
     ::rust::mfem::ffi::DiffusionIntegrator           integr)
 {
+    // Release transfers ownership to MFEM; OwnedDiffusionIntegrator is a
+    // DiffusionIntegrator subclass and owns its coefficient — no leak.
     self.cpp().ptr->AddDomainIntegrator(
         integr.cpp().ptr.release());
     return {};

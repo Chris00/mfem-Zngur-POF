@@ -1,4 +1,4 @@
-//! Bilinear/linear form integrators.
+//! Bilinear/linear form integrators used in solving PDEs.
 
 use crate::ffi;
 use crate::coeff::ConstantCoefficient;

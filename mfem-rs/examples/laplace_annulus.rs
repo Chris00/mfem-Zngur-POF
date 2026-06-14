@@ -108,20 +108,9 @@ fn main() {
 
     // ── Verify against exact solution ─────────────────────────────────────────
     // u*(r) = log(r2/r) / log(r2/r1)
-    let log_ratio = (r2 / r1).ln();
+    // NOTE: Vertex coordinates are not yet exposed through this binding, so we
+    // can only verify that the DOF values are in the expected range [0, 1].
     let n_dof = x.size();
-
-    let mut l2_err_sq = 0.0_f64;
-    let mut n_interior = 0_i32;
-
-    for i in 0..n_dof {
-        let u_h = x.get(i);
-        // We only have the DOF value but not the coordinates here (no vertex
-        // lookup in this binding yet), so just print the range.
-        let _ = u_h;
-        n_interior += 1;
-        l2_err_sq += 0.0; // placeholder – proper L² error needs quadrature
-    }
 
     println!("\nSolution range:");
     let (mut u_min, mut u_max) = (f64::MAX, f64::MIN);
@@ -134,6 +123,7 @@ fn main() {
     println!("  Expected: u ∈ [0, 1] (exact u*(r₁)=1, u*(r₂)=0)");
 
     // Sample the exact solution at a few radii and compare with DOF values
+    let log_ratio = (r2 / r1).ln();
     println!("\nExact solution at selected radii:");
     for k in 0..=4 {
         let t  = k as f64 / 4.0;
@@ -142,6 +132,5 @@ fn main() {
         println!("  r = {r:.3},  u*(r) = {u_exact:.6}");
     }
 
-    let _ = (l2_err_sq, n_interior); // silence unused warnings
     println!("\nDone.");
 }
