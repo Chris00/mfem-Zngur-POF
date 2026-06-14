@@ -1,0 +1,17 @@
+[package]
+name = "mfem"
+version = "0.1.0"
+edition = "2021"
+description = "Idiomatic Rust bindings for MFEM using Zngur"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+zngur-lib = "0.10.0"
+
+[build-dependencies]
+cc = "1"
+zngur = "0.10.0"
+pkg-config = "0.3"
+
+[[example]]
+name = "laplace_annulus"
