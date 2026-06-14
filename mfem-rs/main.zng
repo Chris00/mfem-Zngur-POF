@@ -1,0 +1,221 @@
+// Zngur specification for MFEM Rust bindings.
+// Each MFEM class is wrapped in a C++ struct that holds a std::unique_ptr,
+// giving Rust-safe ownership semantics.  All wrappers have size=8, align=8
+// (the size of a pointer on 64-bit platforms), except LinearSystem which
+// holds three unique_ptrs (size=24).
+//
+// File-path loading (Mesh::from_file) uses a C thread-local side-channel
+// (mfem_rs_set_pending_path) rather than a separate string type.
+
+#cpp_additional_includes "#include <wrapper.hpp>"
+
+// ─── Mesh ─────────────────────────────────────────────────────────────────────
+
+type crate::ffi::Mesh {
+    #cpp_stack_owned "::mfem_rust::BoxedMesh" (size = 8, align = 8);
+
+    // Constructors (static methods)
+    fn make_annulus(i32, i32, f64, f64) -> crate::ffi::Mesh;
+    fn make_from_file(i32, i32) -> crate::ffi::Mesh;
+    fn make_cartesian_2d(i32, i32, f64, f64) -> crate::ffi::Mesh;
+
+    // Mesh properties
+    fn get_nv(&self) -> i32;
+    fn get_ne(&self) -> i32;
+    fn get_nbe(&self) -> i32;
+    fn dimension(&self) -> i32;
+    fn space_dimension(&self) -> i32;
+
+    // Refinement
+    fn uniform_refinement(&mut self);
+}
+
+// ─── ArrayInt (mfem::Array<int>) ─────────────────────────────────────────────
+
+type crate::ffi::ArrayInt {
+    #cpp_stack_owned "::mfem_rust::BoxedArrayInt" (size = 8, align = 8);
+
+    fn new(i32) -> crate::ffi::ArrayInt;
+    fn set_all(&mut self, i32);
+    fn set(&mut self, i32, i32);
+    fn get(&self, i32) -> i32;
+    fn size(&self) -> i32;
+}
+
+// ─── H1FECollection ──────────────────────────────────────────────────────────
+
+type crate::ffi::H1FECollection {
+    #cpp_stack_owned "::mfem_rust::BoxedH1FECollection" (size = 8, align = 8);
+
+    fn new(i32, i32) -> crate::ffi::H1FECollection;
+}
+
+// ─── FiniteElementSpace ───────────────────────────────────────────────────────
+
+type crate::ffi::FiniteElementSpace {
+    #cpp_stack_owned "::mfem_rust::BoxedFESpace" (size = 8, align = 8);
+
+    fn new(&mut crate::ffi::Mesh, &crate::ffi::H1FECollection) -> crate::ffi::FiniteElementSpace;
+    fn get_true_vsize(&self) -> i32;
+    fn get_essential_true_dofs(&self, &crate::ffi::ArrayInt, &mut crate::ffi::ArrayInt);
+}
+
+// ─── GridFunction ─────────────────────────────────────────────────────────────
+
+type crate::ffi::GridFunction {
+    #cpp_stack_owned "::mfem_rust::BoxedGridFunction" (size = 8, align = 8);
+
+    fn new(&mut crate::ffi::FiniteElementSpace) -> crate::ffi::GridFunction;
+    fn project_bdr_coefficient(&mut self, &crate::ffi::ConstantCoefficient, &crate::ffi::ArrayInt);
+    fn get(&self, i32) -> f64;
+    fn size(&self) -> i32;
+}
+
+// ─── ConstantCoefficient ─────────────────────────────────────────────────────
+
+type crate::ffi::ConstantCoefficient {
+    #cpp_stack_owned "::mfem_rust::BoxedConstCoeff" (size = 8, align = 8);
+
+    fn new(f64) -> crate::ffi::ConstantCoefficient;
+}
+
+// ─── DiffusionIntegrator ─────────────────────────────────────────────────────
+
+type crate::ffi::DiffusionIntegrator {
+    #cpp_stack_owned "::mfem_rust::BoxedDiffInt" (size = 8, align = 8);
+
+    fn new(&crate::ffi::ConstantCoefficient) -> crate::ffi::DiffusionIntegrator;
+}
+
+// ─── DomainLFIntegrator ───────────────────────────────────────────────────────
+
+type crate::ffi::DomainLFIntegrator {
+    #cpp_stack_owned "::mfem_rust::BoxedDomainLFInt" (size = 8, align = 8);
+
+    fn new(&crate::ffi::ConstantCoefficient) -> crate::ffi::DomainLFIntegrator;
+}
+
+// ─── LinearForm ───────────────────────────────────────────────────────────────
+
+type crate::ffi::LinearForm {
+    #cpp_stack_owned "::mfem_rust::BoxedLinearForm" (size = 8, align = 8);
+
+    fn new(&mut crate::ffi::FiniteElementSpace) -> crate::ffi::LinearForm;
+    fn add_domain_integrator(&mut self, crate::ffi::DomainLFIntegrator);
+    fn assemble(&mut self);
+}
+
+// ─── BilinearForm ─────────────────────────────────────────────────────────────
+
+type crate::ffi::BilinearForm {
+    #cpp_stack_owned "::mfem_rust::BoxedBilinearForm" (size = 8, align = 8);
+
+    fn new(&mut crate::ffi::FiniteElementSpace) -> crate::ffi::BilinearForm;
+    fn add_domain_integrator(&mut self, crate::ffi::DiffusionIntegrator);
+    fn assemble(&mut self);
+    fn form_linear_system(
+        &mut self,
+        &crate::ffi::ArrayInt,
+        &mut crate::ffi::GridFunction,
+        &mut crate::ffi::LinearForm
+    ) -> crate::ffi::LinearSystem;
+    fn recover_fem_solution(
+        &mut self,
+        &crate::ffi::LinearSystem,
+        &mut crate::ffi::LinearForm,
+        &mut crate::ffi::GridFunction
+    );
+}
+
+// ─── LinearSystem (holds assembled A, X, B) ───────────────────────────────────
+
+type crate::ffi::LinearSystem {
+    #cpp_stack_owned "::mfem_rust::BoxedLinearSystem" (size = 24, align = 8);
+
+    fn pcg_solve(&mut self, i32, i32, f64, f64);
+    fn get_solution_size(&self) -> i32;
+    fn get_solution_entry(&self, i32) -> f64;
+}
+
+// ─── extern "C++" implementations ────────────────────────────────────────────
+
+extern "C++" {
+    impl crate::ffi::Mesh {
+        safe fn make_annulus(i32, i32, f64, f64) -> crate::ffi::Mesh;
+        safe fn make_from_file(i32, i32) -> crate::ffi::Mesh;
+        safe fn make_cartesian_2d(i32, i32, f64, f64) -> crate::ffi::Mesh;
+        safe fn get_nv(&self) -> i32;
+        safe fn get_ne(&self) -> i32;
+        safe fn get_nbe(&self) -> i32;
+        safe fn dimension(&self) -> i32;
+        safe fn space_dimension(&self) -> i32;
+        safe fn uniform_refinement(&mut self);
+    }
+
+    impl crate::ffi::ArrayInt {
+        safe fn new(i32) -> crate::ffi::ArrayInt;
+        safe fn set_all(&mut self, i32);
+        safe fn set(&mut self, i32, i32);
+        safe fn get(&self, i32) -> i32;
+        safe fn size(&self) -> i32;
+    }
+
+    impl crate::ffi::H1FECollection {
+        safe fn new(i32, i32) -> crate::ffi::H1FECollection;
+    }
+
+    impl crate::ffi::FiniteElementSpace {
+        safe fn new(&mut crate::ffi::Mesh, &crate::ffi::H1FECollection) -> crate::ffi::FiniteElementSpace;
+        safe fn get_true_vsize(&self) -> i32;
+        safe fn get_essential_true_dofs(&self, &crate::ffi::ArrayInt, &mut crate::ffi::ArrayInt);
+    }
+
+    impl crate::ffi::GridFunction {
+        safe fn new(&mut crate::ffi::FiniteElementSpace) -> crate::ffi::GridFunction;
+        safe fn project_bdr_coefficient(&mut self, &crate::ffi::ConstantCoefficient, &crate::ffi::ArrayInt);
+        safe fn get(&self, i32) -> f64;
+        safe fn size(&self) -> i32;
+    }
+
+    impl crate::ffi::ConstantCoefficient {
+        safe fn new(f64) -> crate::ffi::ConstantCoefficient;
+    }
+
+    impl crate::ffi::DiffusionIntegrator {
+        safe fn new(&crate::ffi::ConstantCoefficient) -> crate::ffi::DiffusionIntegrator;
+    }
+
+    impl crate::ffi::DomainLFIntegrator {
+        safe fn new(&crate::ffi::ConstantCoefficient) -> crate::ffi::DomainLFIntegrator;
+    }
+
+    impl crate::ffi::LinearForm {
+        safe fn new(&mut crate::ffi::FiniteElementSpace) -> crate::ffi::LinearForm;
+        safe fn add_domain_integrator(&mut self, crate::ffi::DomainLFIntegrator);
+        safe fn assemble(&mut self);
+    }
+
+    impl crate::ffi::BilinearForm {
+        safe fn new(&mut crate::ffi::FiniteElementSpace) -> crate::ffi::BilinearForm;
+        safe fn add_domain_integrator(&mut self, crate::ffi::DiffusionIntegrator);
+        safe fn assemble(&mut self);
+        safe fn form_linear_system(
+            &mut self,
+            &crate::ffi::ArrayInt,
+            &mut crate::ffi::GridFunction,
+            &mut crate::ffi::LinearForm
+        ) -> crate::ffi::LinearSystem;
+        safe fn recover_fem_solution(
+            &mut self,
+            &crate::ffi::LinearSystem,
+            &mut crate::ffi::LinearForm,
+            &mut crate::ffi::GridFunction
+        );
+    }
+
+    impl crate::ffi::LinearSystem {
+        safe fn pcg_solve(&mut self, i32, i32, f64, f64);
+        safe fn get_solution_size(&self) -> i32;
+        safe fn get_solution_entry(&self, i32) -> f64;
+    }
+}
